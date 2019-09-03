@@ -16,8 +16,8 @@
  */
 package spark;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ExceptionMapper {
 
@@ -32,13 +32,18 @@ public class ExceptionMapper {
     }
 
     /**
-     * Returns exception mapper instance used in servlet mode
+     * Returns shared exception mapper instance used in servlet mode
      *
      * @return servlet instance
      */
-    public synchronized static ExceptionMapper getServletInstance() {
-        if (servletInstance == null) {
-            servletInstance = new ExceptionMapper();
+    public static ExceptionMapper getServletInstance() {
+        if (servletInstance != null) {
+            return servletInstance;
+        }
+        synchronized (ExceptionMapper.class) {
+            if (servletInstance == null) {
+                servletInstance = new ExceptionMapper();
+            }
         }
         return servletInstance;
     }
@@ -46,13 +51,13 @@ public class ExceptionMapper {
     /**
      * Holds a map of Exception classes and associated handlers
      */
-    private Map<Class<? extends Exception>, ExceptionHandlerImpl<?>> exceptionMap;
+    private final Map<Class<? extends Exception>, ExceptionHandlerImpl<?>> exceptionMap;
 
     /**
      * Class constructor
      */
     public ExceptionMapper() {
-        this.exceptionMap = new HashMap<>();
+        this.exceptionMap = new ConcurrentHashMap<>();
     }
 
     /**

@@ -1,6 +1,6 @@
 package spark;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 import java.lang.reflect.Field;
 
@@ -15,7 +15,7 @@ public class ExceptionMapperTest {
 		instanceField.set(null, null);
 		
 		ExceptionMapper exceptionMapper = ExceptionMapper.getServletInstance();
-		assertEquals("Should be equal because ExceptionMapper is a singleton", instanceField.get(null), exceptionMapper);
+		assertSame("Should be same because ExceptionMapper is a singleton", instanceField.get(null), exceptionMapper);
 	}
 
 	@Test
@@ -26,6 +26,6 @@ public class ExceptionMapperTest {
 		ExceptionMapper.getServletInstance(); // initialize singleton
 		
 		ExceptionMapper exceptionMapper = ExceptionMapper.getServletInstance();
-		assertEquals("Should be equal because ExceptionMapper is a singleton", instanceField.get(null), exceptionMapper);
+		assertSame("Should be same because ExceptionMapper is a singleton", instanceField.get(null), exceptionMapper);
 	}
 }
