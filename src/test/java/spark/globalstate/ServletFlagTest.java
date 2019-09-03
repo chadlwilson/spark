@@ -2,7 +2,6 @@ package spark.globalstate;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import spark.utils.ReflectionTestUtils;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -15,8 +14,7 @@ public class ServletFlagTest
 
     @Before
     public void setup() {
-
-        ReflectionTestUtils.setField(ServletFlag.class, "isRunningFromServlet", new AtomicBoolean(false));
+        ReflectionTestUtils.<AtomicBoolean>getField(ServletFlag.class, "isRunningFromServlet").set(false);
     }
 
     @Test

@@ -7,17 +7,18 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import spark.embeddedserver.EmbeddedServer;
 import spark.embeddedserver.EmbeddedServers;
+import spark.globalstate.ServletFlag;
 import spark.route.Routes;
 import spark.ssl.SslStores;
 import spark.utils.ReflectionTestUtils;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 import static spark.Service.ignite;
 
 public class ServiceTest {
@@ -269,12 +270,12 @@ public class ServiceTest {
         thrown.expectMessage("WebSocket handler class cannot be null");
         service.webSocket("/", null);
     }
-    
+
     @Test(timeout = 300)
     public void stopExtinguishesServer() {
         Service service = Service.ignite();
-        Routes routes = Mockito.mock(Routes.class);
-        EmbeddedServer server = Mockito.mock(EmbeddedServer.class);
+        Routes routes = mock(Routes.class);
+        EmbeddedServer server = mock(EmbeddedServer.class);
         service.routes = routes;
         service.server = server;
         service.initialized = true;
@@ -287,24 +288,74 @@ public class ServiceTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        Mockito.verify(server).extinguish();
+        verify(server).extinguish();
     }
     
     @Test
     public void awaitStopBlocksUntilExtinguished() {
         Service service = Service.ignite();
-        Routes routes = Mockito.mock(Routes.class);
-        EmbeddedServer server = Mockito.mock(EmbeddedServer.class);
+        Routes routes = mock(Routes.class);
+        EmbeddedServer server = mock(EmbeddedServer.class);
         service.routes = routes;
         service.server = server;
         service.initialized = true;
         service.stop();
         service.awaitStop();
-        Mockito.verify(server).extinguish();
+        verify(server).extinguish();
         assertFalse(service.initialized);
     }
     
     @WebSocket
     protected static class DummyWebSocketListener {
     }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void exceptionMapperUsesDedicatedMapperWhenRunningEmbedded() {
+        ExceptionHandler<Exception> handler = mock(ExceptionHandler.class);
+
+        Service service;
+        try (MockedStatic<ServletFlag> servletFlag = mockStatic(ServletFlag.class)) {
+            servletFlag.when(ServletFlag::isRunningFromServlet).thenReturn(false);
+
+            service = Service.ignite();
+            service.exception(Exception.class, handler);
+        }
+
+        try {
+            RuntimeException testException = new RuntimeException();
+            assertNull(ExceptionMapper.getServletInstance().getHandler(testException));
+        } finally {
+            ExceptionMapper.getServletInstance().clear();
+            service.stop();
+            service.awaitStop();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void exceptionMapperUsesServletInstanceWhenRunningFromServlet() {
+        ExceptionHandler<Exception> handler = mock(ExceptionHandler.class);
+
+        Service service;
+        try (MockedStatic<ServletFlag> servletFlag = mockStatic(ServletFlag.class)) {
+            servletFlag.when(ServletFlag::isRunningFromServlet).thenReturn(true);
+
+            service = Service.ignite();
+            service.exception(Exception.class, handler);
+        }
+
+        try {
+            RuntimeException testException = new RuntimeException();
+            ExceptionHandlerImpl<Exception> servletHandler = (ExceptionHandlerImpl<Exception>) ExceptionMapper.getServletInstance().getHandler(testException);
+            servletHandler.handle(testException, null, null);
+
+            verify(handler).handle(testException, null, null);
+        } finally {
+            ExceptionMapper.getServletInstance().clear();
+            service.stop();
+            service.awaitStop();
+        }
+    }
+
 }
