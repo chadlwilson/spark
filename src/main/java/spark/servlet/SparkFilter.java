@@ -181,6 +181,6 @@ public class SparkFilter implements Filter {
                 sparkApplication.destroy();
             }
         }
+        ExceptionMapper.getServletInstance().clear();
     }
-
 }
