@@ -21,6 +21,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ExceptionMapper {
 
+    private static final ExceptionHandlerImpl<?> noOpHandler = new ExceptionHandlerImpl<>(null) {
+        @Override
+        public void handle(Exception exception, Request request, Response response) {}
+    };
+
     /**
      * Holds an exception mapper instance for use in servlet mode
      */
@@ -66,7 +71,7 @@ public class ExceptionMapper {
      * @param exceptionClass Type of exception
      * @param handler        Handler to map to exception
      */
-    public void map(Class<? extends Exception> exceptionClass, ExceptionHandlerImpl handler) {
+    public void map(Class<? extends Exception> exceptionClass, ExceptionHandlerImpl<?> handler) {
         this.exceptionMap.put(exceptionClass, handler);
     }
 
@@ -74,36 +79,42 @@ public class ExceptionMapper {
      * Returns the handler associated with the provided exception class
      *
      * @param exceptionClass Type of exception
-     * @return Associated handler
+     * @return Associated handler or null if there is no handler implied for the class or its superclasses
      */
-    public ExceptionHandlerImpl getHandler(Class<? extends Exception> exceptionClass) {
+    public ExceptionHandlerImpl<?> getHandler(Class<? extends Exception> exceptionClass) {
         // If the exception map does not contain the provided exception class, it might
         // still be that a superclass of the exception class is.
-        if (!this.exceptionMap.containsKey(exceptionClass)) {
+        ExceptionHandlerImpl<?> handler = this.exceptionMap.get(exceptionClass);
 
+        if (handler == null) {
             Class<?> superclass = exceptionClass.getSuperclass();
-            do {
+            while (superclass != null) {
                 // Is the superclass mapped?
-                if (this.exceptionMap.containsKey(superclass)) {
+                handler = this.exceptionMap.get(superclass);
+
+                if (handler != null) {
                     // Use the handler for the mapped superclass, and cache handler
                     // for this exception class
-                    ExceptionHandlerImpl handler = this.exceptionMap.get(superclass);
-                    this.exceptionMap.put(exceptionClass, handler);
-                    return handler;
+                    this.exceptionMap.putIfAbsent(exceptionClass, handler);
+                    return unwrapIfNecessary(handler);
                 }
 
                 // Iteratively walk through the exception class's superclasses
                 superclass = superclass.getSuperclass();
-            } while (superclass != null);
+            }
 
-            // No handler found either for the superclasses of the exception class
-            // We cache the null value to prevent future
-            this.exceptionMap.put(exceptionClass, null);
+            // No handler found any of the superclasses of the exception class
+            // We cache a noOp value to prevent future lookups and distinguish between null = "never mapped"
+            this.exceptionMap.putIfAbsent(exceptionClass, noOpHandler);
             return null;
         }
 
-        // Direct map
-        return this.exceptionMap.get(exceptionClass);
+        // Direct mapping for exception class
+        return unwrapIfNecessary(handler);
+    }
+
+    private static ExceptionHandlerImpl<?> unwrapIfNecessary(ExceptionHandlerImpl<?> handler) {
+        return noOpHandler == handler ? null : handler;
     }
 
     /**
@@ -112,7 +123,7 @@ public class ExceptionMapper {
      * @param exception Exception that occurred
      * @return Associated handler
      */
-    public ExceptionHandlerImpl getHandler(Exception exception) {
+    public ExceptionHandlerImpl<?> getHandler(Exception exception) {
         return this.getHandler(exception.getClass());
     }
 
@@ -123,4 +134,7 @@ public class ExceptionMapper {
         this.exceptionMap.clear();
     }
 
+    int size() {
+        return this.exceptionMap.size();
+    }
 }
