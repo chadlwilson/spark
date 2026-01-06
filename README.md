@@ -12,7 +12,7 @@
 
 ### Why This Fork?
 
-- ✅ **Security updates** - Updated Jetty (9.4.54) and SLF4J (2.0.12)
+- ✅ **Security updates** - Updated Jetty (9.4.54) and SLF4J (2.0.18)
 - ✅ **Java 17 compatibility** - Works with modern Java versions
 - ✅ **Bug fixes** - Issues are addressed as discovered
 - ✅ **100% backward compatible** - Drop-in replacement for Spark 2.9.4
