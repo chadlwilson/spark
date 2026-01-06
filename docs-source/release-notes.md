@@ -18,6 +18,12 @@ Updating to Jetty 12 would be a too big change for this release.
 - #12: Update some versions: Jetty 11.0.24, slf4j 2.0.17, ...
 - #14: Set response body in after after
 
+## 2.9.5
+
+- #20: Fixes [perwendel/spark#1062](https://github.com/perwendel/spark/issues/1062) by ensuring exception mappers are registered/called correctly when running within a servlet.
+- #20: Fixes [perwendel/spark#1010](https://github.com/perwendel/spark/issues/1010) by improving thread safety of exception mappers.
+- #20: Fixes [perwendel/spark#1213](https://github.com/perwendel/spark/issues/1213) by ensuring exception mappers are cleared when ServletFilters are destroyed.
+
 ## 2.9.4
 
 The release 2.9.4 is identical to the last release 2.9.4 by Per Wendel.
