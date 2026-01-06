@@ -21,6 +21,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ExceptionMapper {
 
+    private static final ExceptionHandlerImpl<Exception> cachedNoOpHandler = new ExceptionHandlerImpl<>(null) {
+        @Override
+        public void handle(Exception exception, Request request, Response response) {
+
+        }
+    };
+
     /**
      * Holds an exception mapper instance for use in servlet mode
      */
@@ -80,31 +87,37 @@ public class ExceptionMapper {
     public ExceptionHandlerImpl getHandler(Class<? extends Exception> exceptionClass) {
         // If the exception map does not contain the provided exception class, it might
         // still be that a superclass of the exception class is.
-        if (!this.exceptionMap.containsKey(exceptionClass)) {
+        ExceptionHandlerImpl<?> handler = this.exceptionMap.get(exceptionClass);
 
+        if (handler == null) {
             Class<?> superclass = exceptionClass.getSuperclass();
-            do {
+            while (superclass != null) {
                 // Is the superclass mapped?
-                if (this.exceptionMap.containsKey(superclass)) {
+                handler = this.exceptionMap.get(superclass);
+
+                if (handler != null) {
                     // Use the handler for the mapped superclass, and cache handler
                     // for this exception class
-                    ExceptionHandlerImpl handler = this.exceptionMap.get(superclass);
-                    this.exceptionMap.put(exceptionClass, handler);
-                    return handler;
+                    this.exceptionMap.putIfAbsent(exceptionClass, handler);
+                    return unwrapifNecessary(handler);
                 }
 
                 // Iteratively walk through the exception class's superclasses
                 superclass = superclass.getSuperclass();
-            } while (superclass != null);
+            }
 
             // No handler found either for the superclasses of the exception class
-            // We cache the null value to prevent future
-            this.exceptionMap.put(exceptionClass, null);
+            // We cache the null value to prevent future lookups
+            this.exceptionMap.putIfAbsent(exceptionClass, cachedNoOpHandler);
             return null;
         }
 
         // Direct map
-        return this.exceptionMap.get(exceptionClass);
+        return unwrapifNecessary(handler);
+    }
+
+    private static ExceptionHandlerImpl<?> unwrapifNecessary(ExceptionHandlerImpl<?> handler) {
+        return cachedNoOpHandler == handler ? null : handler;
     }
 
     /**
@@ -124,4 +137,7 @@ public class ExceptionMapper {
         this.exceptionMap.clear();
     }
 
+    int size() {
+        return this.exceptionMap.size();
+    }
 }
